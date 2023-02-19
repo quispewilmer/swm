@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h> 
+#include <stdarg.h>
 #include <stdlib.h>
 /* X libs */
 #include <X11/Xlib.h>
@@ -31,8 +32,14 @@
  */
 
 static Display *dpy;
+static Window root;
+static Screen *screen;
+static int screen_num;
+static int dw;
+static int dh;
 
 void die (const char *, ...);
+void setup ();
 
 int 
 main(int argc, char *argv[]) 
@@ -43,9 +50,12 @@ main(int argc, char *argv[])
         die("swm: use swm [-v]\n");
     if (!XSupportsLocale)
         die("swm: there's no locale support\n");
-    if (!(dpy = XOpenDisplay(NULL)))
+    if (!(dpy = XOpenDisplay((char *) NULL)))
         die("swm: cannot open display\n");
+    fprintf(stdout, "swm: number of connection with x server: %d", ConnectionNumber(dpy));
+    setup();
     XCloseDisplay(dpy);
+    return EXIT_SUCCESS;
 }
 
 void 
@@ -56,4 +66,15 @@ die (const char *strerr, ...)
     vfprintf(stderr, strerr, ap);
     va_end(ap);
     exit(EXIT_FAILURE);
+}
+
+void
+setup () 
+{
+    root = DefaultRootWindow(dpy);
+    screen = DefaultScreenOfDisplay(dpy);
+    screen_num = DefaultScreen(dpy);
+    dw = DisplayWidth(dpy, screen_num);
+    dh = DisplayHeight(dpy, screen_num);
+    Window nw = XCreateWindow(dpy, root, 0, 0, dw, dh, 8, DefaultDepth(dpy, 1), CopyFromParent, CopyFromParent, 0, NULL);
 }
