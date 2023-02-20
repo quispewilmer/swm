@@ -38,6 +38,7 @@ static int screen_num;
 static int dw;
 static int dh;
 static Bool is_another_wm;
+static Bool is_running = True;
 
 void die (const char *, ...);
 void setup ();
@@ -45,6 +46,9 @@ void check_other_wm ();
 int on_wm_detected (Display *, XErrorEvent *);
 int x_error (Display *, XErrorEvent *);
 void run ();
+void on_configure_request (XEvent *);
+void on_map_request (XEvent *);
+void manage_request (Window, XWindowAttributes *);
 
 int 
 main(int argc, char *argv[]) 
@@ -116,5 +120,48 @@ setup ()
 void
 run () 
 {
-    
+    XEvent e;
+    XSync(dpy, False);
+    while (is_running && !XNextEvent(dpy, &e)) {
+        fprintf(stdout, "swm: event %d", e.type);
+        switch(e.type) {
+            case ConfigureNotify:
+                on_configure_request(&e);
+            case MapNotify:
+                on_map_request(&e);
+        }
+    }
+}
+
+void
+on_configure_request (XEvent *e) 
+{
+    XConfigureRequestEvent cre = e->xconfigurerequest;
+    XWindowChanges wc;
+    wc.x = cre.x;
+    wc.y = cre.y;
+    wc.width = cre.width;
+    wc.height = cre.height;
+    wc.border_width = cre.border_width;
+    wc.stack_mode = cre.detail;
+    wc.sibling = cre.above;
+    XConfigureWindow(dpy, cre.window, cre.value_mask, &wc);
+    XSync(dpy, False);
+}
+
+void
+on_map_request (XEvent *e) 
+{
+    XMapRequestEvent mre = e->xmaprequest;
+    static XWindowAttributes wa;
+    XGetWindowAttributes(dpy, mre.window, &wa);
+    manage_request(mre.window, &wa);
+}
+
+void
+manage_request (Window w, XWindowAttributes *wa) 
+{
+    const Window frame = XCreateSimpleWindow(dpy, root, wa->x, wa->y, wa->width, wa->height, 3, 0xff0000, 0x00ff00);
+    XSelectInput(dpy, frame, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+    XMapWindow(dpy, frame);
 }
