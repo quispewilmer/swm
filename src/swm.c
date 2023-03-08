@@ -52,7 +52,9 @@ void on_map_notify (XEvent *);
 void on_reparent_notify (XEvent *); 
 void on_configure_request (XEvent *);
 void on_map_request (XEvent *);
+void on_unmap_notify (XEvent *);
 void manage_request (Window, XWindowAttributes *);
+void unmanage_request (Window);
 
 void 
 die (const char *strerr, ...) 
@@ -127,6 +129,9 @@ run ()
             case MapRequest:
                 on_map_request(&e);
                 break;
+            case UnmapNotify:
+                on_unmap_notify(&e);
+                break;
         }
     }
 }
@@ -170,17 +175,33 @@ on_map_request (XEvent *e)
     static XWindowAttributes wa;
     XGetWindowAttributes(dpy, mre.window, &wa);
     manage_request(mre.window, &wa);
-    XMapWindow(dpy, e->xmaprequest.window);
+    XMapWindow(dpy, mre.window);
 }
 
 void
 manage_request (Window w, XWindowAttributes *wa) 
 {
-    const Window frame = XCreateSimpleWindow(dpy, root, wa->x, wa->y, wa->width, wa->height, 1, 0xff0000, 0x00000000);
+    const Window frame = XCreateSimpleWindow(dpy, root, wa->x, wa->y, wa->width, wa->height, 0, 0x00000000, 0x00000000);
     XSelectInput(dpy, frame, SubstructureRedirectMask | SubstructureNotifyMask);
     XAddToSaveSet(dpy, w);
     XReparentWindow(dpy, w, frame, 0, 0);
     XMapWindow(dpy, frame);
+}
+
+void
+on_unmap_notify (XEvent *e) 
+{
+    XUnmapEvent ue = e->xunmap;
+    unmanage_request(ue.window);
+}
+
+void
+unmanage_request (Window w) 
+{
+    XUnmapWindow(dpy, w);
+    XReparentWindow(dpy, w, root, 0, 0);
+    XRemoveFromSaveSet(dpy, w);
+    XDestroyWindow(dpy, w);
 }
 
 int 
