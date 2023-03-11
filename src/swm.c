@@ -2,8 +2,10 @@
 #include <string.h> 
 #include <stdarg.h>
 #include <stdlib.h>
+#include <unistd.h>
 /* X libs */
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 /*
  * Xorg (X) provides an X Server through which the Window Manager (WM) can make 
@@ -40,21 +42,27 @@ static int dh;
 static Bool is_another_wm;
 static Bool is_running = True;
 
-void die (const char *, ...);
-void setup ();
-void check_other_wm ();
-int on_wm_detected (Display *, XErrorEvent *);
-int x_error (Display *, XErrorEvent *);
-void run ();
-void on_create_notify (XEvent *);
-void on_destroy_notify (XEvent *);
-void on_map_notify (XEvent *);
-void on_reparent_notify (XEvent *); 
-void on_configure_request (XEvent *);
-void on_map_request (XEvent *);
-void on_unmap_notify (XEvent *);
-void manage_request (Window, XWindowAttributes *);
-void unmanage_request (Window);
+static void die (const char *, ...);
+static void setup ();
+static void check_other_wm ();
+static int on_wm_detected (Display *, XErrorEvent *);
+static int x_error (Display *, XErrorEvent *);
+static void run ();
+static void on_create_notify (XEvent *);
+static void on_destroy_notify (XEvent *);
+static void on_map_notify (XEvent *);
+static void on_reparent_notify (XEvent *); 
+static void on_configure_request (XEvent *);
+static void on_map_request (XEvent *);
+static void on_unmap_notify (XEvent *);
+static void on_button_press (XEvent *);
+static void on_button_release (XEvent *);
+static void on_motion_notify (XEvent *);
+static void on_key_press (XEvent *);
+static void on_key_release (XEvent *);
+static void manage_request (Window, XWindowAttributes *);
+static void unmanage_request (Window);
+static void spawn ();
 
 void 
 die (const char *strerr, ...) 
@@ -101,6 +109,7 @@ setup ()
     screen_num = DefaultScreen(dpy);
     dw = DisplayWidth(dpy, screen_num);
     dh = DisplayHeight(dpy, screen_num);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_Return), Mod1Mask, root, False, GrabModeAsync, GrabModeAsync);
 }
 
 void
@@ -109,7 +118,6 @@ run ()
     XEvent e;
     XSync(dpy, False);
     while (is_running && !XNextEvent(dpy, &e)) {
-        fprintf(stdout, "swm: event %d\n", e.type);
         switch(e.type) {
             case CreateNotify:
                 on_create_notify(&e);
@@ -131,6 +139,24 @@ run ()
                 break;
             case UnmapNotify:
                 on_unmap_notify(&e);
+                break;
+            case ButtonPress:
+                on_button_press(&e);
+                break;
+            case ButtonRelease:
+                on_button_release(&e);
+                break;
+            case MotionNotify:
+                on_motion_notify(&e);
+                break;
+            case KeyPress:
+                on_key_press(&e);
+                break;
+            case KeyRelease:
+                on_key_release(&e);
+                break;
+            default:
+                fprintf(stdout, "swm: unknown event\n");
                 break;
         }
     }
@@ -181,8 +207,10 @@ on_map_request (XEvent *e)
 void
 manage_request (Window w, XWindowAttributes *wa) 
 {
-    const Window frame = XCreateSimpleWindow(dpy, root, wa->x, wa->y, wa->width, wa->height, 0, 0x00000000, 0x00000000);
-    XSelectInput(dpy, frame, SubstructureRedirectMask | SubstructureNotifyMask);
+    const Window frame = XCreateSimpleWindow(dpy, root, wa->x, wa->y, wa->width, wa->height, 3, 0xff0000, 0x00000000);
+    XGrabButton(dpy, Button1, Mod4Mask, w, False, ButtonPressMask | ButtonMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(dpy, Button3, Mod4Mask, w, False, ButtonPressMask | ButtonMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_F4), Mod1Mask, w, False, GrabModeAsync, GrabModeAsync);
     XAddToSaveSet(dpy, w);
     XReparentWindow(dpy, w, frame, 0, 0);
     XMapWindow(dpy, frame);
@@ -202,6 +230,42 @@ unmanage_request (Window w)
     XReparentWindow(dpy, w, root, 0, 0);
     XRemoveFromSaveSet(dpy, w);
     XDestroyWindow(dpy, w);
+}
+
+void
+on_button_press (XEvent *e) 
+{
+
+}
+
+void
+on_button_release (XEvent *e) 
+{ }
+
+void
+on_motion_notify (XEvent *e) 
+{
+
+}
+
+void
+on_key_press (XEvent *e) 
+{
+    XKeyEvent ke = e->xkey;
+    if (ke.keycode == XKeysymToKeycode(dpy, XK_F4))
+        printf("Closing window...");
+    else if (ke.keycode == XKeysymToKeycode(dpy, XK_Return))
+        spawn();
+}
+
+void
+on_key_release (XEvent *e) 
+{ }
+
+void
+spawn () 
+{
+    execvp("xterm", NULL);
 }
 
 int 
